@@ -3,16 +3,46 @@ import framebuf
 import time
 from ota import OTAUpdater
 from WIFI_CONFIG import SSID, PASSWORD
+import ntptime
+import urequests
+from WIFI_CONFIG import BOT_TOKEN, CHAT_ID
 
-# ---------- INTERRUPTS --------
+# --- FUNCIONES DE REGISTRO Y NOTIFICACIÓN ---
+def guardar_log_y_avisar(mensaje):
+    try:
+        # 1. Sincronizar hora de internet
+        ntptime.settime()
+        
+        # 2. Ajustar a hora local (UTC-3)
+        hora_local = time.time() - (3 * 3600)
+        tm = time.localtime(hora_local)
+        timestamp = f"{tm[0]:04d}-{tm[1]:02d}-{tm[2]:02d} {tm[3]:02d}:{tm[4]:02d}:{tm[5]:02d}"
+        
+        # 3. Guardar en un archivo de texto interno (historial.txt)
+        with open("historial.txt", "a") as f:
+            f.write(f"[{timestamp}] {mensaje}\n")
+        print(f"Log guardado: [{timestamp}] {mensaje}")
+        
+        # 4. Enviar notificación por Telegram
+        mensaje_url = f"[{timestamp}] {mensaje}".replace(" ", "%20")
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={mensaje_url}"
+        res = urequests.get(url)
+        res.close()
+        
+    except Exception as e:
+        print("Error en registro/Telegram:", e)
+        
+        
+#----------INTERRUPTS--------
 pinInterupt = Pin(5, Pin.IN, Pin.PULL_UP)
 
 def callback(pinInterrupt):
     print("INT")
-
+    
 pinInterupt.irq(trigger=Pin.IRQ_RISING, handler=callback)
 
-# ---------- PINES CONTROL --------
+#Los pines de control deberian ser asignados aca
+#mediante su numero logico GPIOn
 sck = 10
 mosi = 11
 miso = 28
@@ -20,14 +50,14 @@ rst = 12
 dc = 8
 cs = 9
 busy = 13
-
 class EPD_4in2_V2:
     def __init__(self):
+        # SPI1 configurado en los pines puenteados
         self.spi = SPI(1, baudrate=4000000, polarity=0, phase=0, sck=Pin(sck), mosi=Pin(mosi), miso=Pin(miso))
-        self.reset_pin = Pin(rst, Pin.OUT)
-        self.dc_pin = Pin(dc, Pin.OUT)
-        self.cs_pin = Pin(cs, Pin.OUT)
-        self.busy_pin = Pin(busy, Pin.IN, Pin.PULL_UP)
+        self.reset_pin = Pin(rst, Pin.OUT)	#RST
+        self.dc_pin = Pin(dc, Pin.OUT)	#DC
+        self.cs_pin = Pin(cs, Pin.OUT)	#CS
+        self.busy_pin = Pin(busy, Pin.IN, Pin.PULL_UP)	#BUSY
         self.width = 400
         self.height = 300
 
@@ -101,17 +131,18 @@ class EPD_4in2_V2:
 
 # --- EJECUCIÓN PRINCIPAL ---
 firmware_url = "https://github.com/PDablo/ota_test/"
-
 def main():
     while True:
-        print("Iniciando ciclo. Comprobando actualizaciones OTA...")
-        try:
-            ota_updater = OTAUpdater(SSID, PASSWORD, firmware_url, "main.py")
-            # Si hay actualización, el dispositivo se reiniciará automáticamente aquí.
-            ota_updater.download_and_install_update_if_available()
-        except Exception as e:
-            print("Error durante la comprobación OTA:", e)
+        print("Iniciando ciclo...")
         
+        # Instanciar el actualizador
+        ota_updater = OTAUpdater(SSID, PASSWORD, firmware_url, "main.py")
+        
+        # Forzamos la conexión WiFi primero para poder mandar el mensaje de Telegram
+        ota_updater.connect_wifi()
+        
+        # Disparamos el mensaje y el guardado local ANTES de actualizar
+        guardar_log_y_avisar("Pico W: Consultando actualizaciones en GitHub...")
         print("Actualizando pantalla E-Paper...")
         try:
             epd = EPD_4in2_V2()
@@ -122,16 +153,20 @@ def main():
             
             fb.fill(0xFF)
             fb.rect(10, 10, 380, 280, 0x00)
-            fb.text("¡Hola Mundo! V2", 110, 140, 0x00)
-            fb.text("El hardware funciona perfecto.", 80, 160, 0x00)
+            fb.text("Actualizacion OK", 120, 140, 0x00)
+            fb.text("Sistema alimentado autonomo.", 80, 160, 0x00)
             
             epd.display(buf)
             epd.sleep()
         except Exception as e:
             print("Error en pantalla:", e)
             
-        print("Esperando 1 hora para el próximo ciclo...")
-        time.sleep(3600) # Pausa de 3600 segundos (1 hora)
+            print("Esperando 1 hora para el próximo ciclo...")
+            time.sleep(3600)
+    
+        except Exception as e:
+            print("Error:", e)
+    
 
 # Iniciar el programa
 if __name__ == '__main__':
