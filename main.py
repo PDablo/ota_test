@@ -122,7 +122,7 @@ def main():
             
             fb.fill(0xFF)
             fb.rect(10, 10, 380, 280, 0x00)
-            fb.text("¡Hola Mundo!", 110, 140, 0x00)
+            fb.text("¡Hola Mundo! V2", 110, 140, 0x00)
             fb.text("El hardware funciona perfecto.", 80, 160, 0x00)
             
             epd.display(buf)
