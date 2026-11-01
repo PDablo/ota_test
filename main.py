@@ -156,7 +156,7 @@ def main():
             
             fb.fill(0xFF)
             fb.rect(10, 10, 380, 280, 0x00)
-            fb.text("Actualizacion OK v3", 120, 140, 0x00)
+            fb.text("Actualizacion OK v4", 120, 140, 0x00)
             fb.text("Sistema alimentado autonomo.", 80, 160, 0x00)
             
             epd.display(buf)
