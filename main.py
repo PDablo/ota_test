@@ -146,6 +146,15 @@ def main():
             print("Fallo OTA:", e)
         # Disparamos el mensaje y el guardado local ANTES de actualizar
         guardar_log_y_avisar("Pico W: Consultando actualizaciones en GitHub...")
+        # 1. APAGAR Wi-Fi para liberar el bus de alimentación y evitar brownout
+        print("Apagando radio Wi-Fi para estabilizar alimentación...")
+        import network
+        wlan = network.WLAN(network.STA_IF)
+        wlan.disconnect()
+        wlan.active(False)
+        
+        # 2. Darle tiempo a los capacitores de la placa para recuperarse del pico del Wi-Fi
+        time.sleep(2)
         print("Actualizando pantalla E-Paper...")
         try:
             epd = EPD_4in2_V2()
