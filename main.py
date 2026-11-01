@@ -140,7 +140,10 @@ def main():
         
         # Forzamos la conexión WiFi primero para poder mandar el mensaje de Telegram
         ota_updater.connect_wifi()
-        
+        try:
+            ota_updater.download_and_install_update_if_available()
+        except Exception as e:
+            print("Fallo OTA:", e)
         # Disparamos el mensaje y el guardado local ANTES de actualizar
         guardar_log_y_avisar("Pico W: Consultando actualizaciones en GitHub...")
         print("Actualizando pantalla E-Paper...")
